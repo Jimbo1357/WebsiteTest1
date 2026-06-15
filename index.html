@@ -2,28 +2,79 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Minimal Paste</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero-Cost Pastebin</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lzma/2.3.2/lzma-min.js"></script>
     <style>
-        body { font-family: monospace; background: #121212; color: #fff; padding: 20px; }
-        textarea { width: 100%; height: 70vh; background: #1e1e1e; color: #fff; border: 1px solid #333; padding: 10px; font-family: monospace; }
-        button { background: #0070f3; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-top: 10px; }
+        body { font-family: monospace; background: #121212; color: #fff; padding: 20px; margin: 0; }
+        textarea { width: 100%; height: 75vh; background: #1e1e1e; color: #fff; border: 1px solid #333; padding: 10px; font-family: monospace; box-sizing: border-box; resize: none; }
+        button { background: #0070f3; color: white; border: none; padding: 12px 24px; cursor: pointer; margin-top: 15px; font-weight: bold; border-radius: 4px; }
+        button:hover { background: #0051a8; }
+        #raw-display { white-space: pre-wrap; font-family: monospace; display: none; }
     </style>
 </head>
 <body>
-    <h2>New Paste</h2>
-    <textarea id="content" placeholder="Paste your code or text here..."></textarea>
-    <button onclick="submitPaste()">Create Paste</button>
+
+    <div id="creator-view">
+        <h2>New Paste (No-DB edition)</h2>
+        <textarea id="content" placeholder="Paste your code or text here..."></textarea>
+        <button onclick="sharePaste()">Create Shareable Link</button>
+    </div>
+
+    <div id="raw-display"></div>
 
     <script>
-        async function submitPaste() {
+        // Check the URL when the page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                // Hide the input box and button
+                document.getElementById('creator-view').style.display = 'none';
+                const display = document.getElementById('raw-display');
+                display.style.display = 'block';
+
+                // Decode the text from the URL
+                try {
+                    const compressedData = hexToBytes(hash);
+                    LZMA.decompress(compressedData, (result, error) => {
+                        if (error) {
+                            display.innerText = "Error decoding paste.";
+                        } else {
+                            display.innerText = result; // Renders pure text
+                        }
+                    });
+                } catch (e) {
+                    display.innerText = "Invalid link.";
+                }
+            }
+        });
+
+        // Compress the text and put it in the URL
+        function sharePaste() {
             const text = document.getElementById('content').value;
-            const res = await fetch('/api/paste', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text })
+            if (!text) return alert("Please enter some text first!");
+
+            LZMA.compress(text, 1, (result, error) => {
+                if (error) return alert("Compression failed");
+                const hexString = bytesToHex(result);
+                
+                // Update the URL with the compressed text hash
+                window.location.hash = hexString;
+                
+                // Prompt the user to copy their brand new link
+                navigator.clipboard.writeText(window.location.href);
+                alert("Link copied to clipboard! Share it anywhere.");
             });
-            const data = await res.json();
-            if(data.id) window.location.href = `/api/paste?id=${data.id}`;
+        }
+
+        // Helper functions to handle data conversion
+        function bytesToHex(bytes) {
+            return Array.from(bytes, byte => ('0' + (byte & 0xFF).toString(16)).slice(-2)).join('');
+        }
+        function hexToBytes(hex) {
+            const bytes = [];
+            for (let c = 0; c < hex.length; c += 2) bytes.push(parseInt(hex.substr(c, 2), 16));
+            return bytes;
         }
     </script>
 </body>
