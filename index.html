@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Minimal Paste</title>
+    <style>
+        body { font-family: monospace; background: #121212; color: #fff; padding: 20px; }
+        textarea { width: 100%; height: 70vh; background: #1e1e1e; color: #fff; border: 1px solid #333; padding: 10px; font-family: monospace; }
+        button { background: #0070f3; color: white; border: none; padding: 10px 20px; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>New Paste</h2>
+    <textarea id="content" placeholder="Paste your code or text here..."></textarea>
+    <button onclick="submitPaste()">Create Paste</button>
+
+    <script>
+        async function submitPaste() {
+            const text = document.getElementById('content').value;
+            const res = await fetch('/api/paste', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const data = await res.json();
+            if(data.id) window.location.href = `/api/paste?id=${data.id}`;
+        }
+    </script>
+</body>
+</html>
